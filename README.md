@@ -4,6 +4,8 @@ Small library to draw line graphs in java
 
 ![.preview.png](.preview.png)
 
+## Install
+
 Add MCHV repository to your pom.xml
 
 ```xml
