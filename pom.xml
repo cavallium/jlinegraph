@@ -31,5 +31,4 @@
       <url>https://mvn.mchv.eu/repository/mchv-snapshot</url>
     </snapshotRepository>
   </distributionManagement>
-
 </project>
