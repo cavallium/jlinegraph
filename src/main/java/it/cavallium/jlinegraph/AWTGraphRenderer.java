@@ -26,11 +26,12 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	private static final int MAX_LABELS = 1000;
 
 	@Override
-	public AWTDrawer renderGraph(Graph graph, RasterSize totalSize) {
-		return graphics2D -> renderGraph(graphics2D, graph, totalSize);
+	public AWTDrawer renderGraph(Graph graph, GraphBounds bounds) {
+		return graphics2D -> renderGraph(graphics2D, graph, bounds);
 	}
 
-	public static void renderGraph(Graphics2D graphics2D, Graph graph, RasterSize totalSize) {
+	public static void renderGraph(Graphics2D g2d, Graph graph, GraphBounds bounds) {
+		var graphics2D = (Graphics2D) g2d.create();
 		graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 		graphics2D.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -76,7 +77,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		var graphHeight
 				// Start with total height
-				= totalSize.height()
+				= bounds.height()
 				// Remove the padding on top
 				- topPadding
 				// Remove the x value lines length
@@ -90,16 +91,16 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 				// Remove the padding on bottom
 				- bottomPadding;
 
-		var xValueLineOffset = topPadding + graphHeight;
+		var xValueLineOffset = bounds.minY() + topPadding + graphHeight;
 
-		var yLabels = getYLabels(graph, graphHeight, valuesFontMetrics, scaleY, y.mode());
+		var yLabels = getYLabels(graph, bounds.minY(), graphHeight, valuesFontMetrics, scaleY, y.mode());
 		RasterSize yLabelsAreaSize = computeYLabelsAreaSize(y.mode(), graphHeight, valuesFontMetrics, yLabels);
 		var yValuesWidth = yLabelsAreaSize.width();
-		var yValueLineOffset = leftPadding + yAxisNameWidth + yValuesToYAxisNamePadding + yValuesWidth;
+		var yValueLineOffset = bounds.minX() + leftPadding + yAxisNameWidth + yValuesToYAxisNamePadding + yValuesWidth;
 
 		var graphWidth
 				// Start with total width
-				= totalSize.width()
+				= bounds.width()
 				// Remove the padding on left
 				- leftPadding
 				// Remove y-axis name "90deg height"
@@ -133,32 +134,39 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			}
 		}
 
-		var xLabels = getXLabels(graph, graphWidth, valuesFontMetrics, scaleX, x.mode());
+		var xLabels = getXLabels(graph, bounds.minX(), graphWidth, valuesFontMetrics, scaleX, x.mode());
 
-		RasterSize yAxisNameCenterOffset = new RasterSize(leftPadding + valuesFontMetrics.getHeight() / 2d, valuesFontMetrics.getHeight()
+		RasterSize yAxisNameCenterOffset = new RasterSize(bounds.minX()
+				+ leftPadding
+				+ valuesFontMetrics.getHeight() / 2d, bounds.minY()
+				+ valuesFontMetrics.getHeight()
 				// Add half of graph height
 				+ graphHeight / 2 + topPadding);
 
-		RasterSize yValuesOffset = new RasterSize(leftPadding
+		RasterSize yValuesOffset = new RasterSize(bounds.minX()
+				+ leftPadding
 				// Add y axis name "90deg height"
 				+ yAxisNameWidth
 				// Add the space between the values and the axis name
-				+ yValuesToYAxisNamePadding, topPadding);
+				+ yValuesToYAxisNamePadding, bounds.minY() + topPadding);
 
-		RasterSize graphOffset = new RasterSize(leftPadding
+		RasterSize graphOffset = new RasterSize(bounds.minX()
+				+ leftPadding
 				+ yAxisNameWidth
 				+ yValuesToYAxisNamePadding
 				+ yValuesWidth
-				+ yValueLineLength, topPadding);
+				+ yValueLineLength, bounds.minY() + topPadding);
 		RasterSize xValuesOffset = new RasterSize(graphOffset.width(), xValueLineOffset + xValueLineLength);
 
-		RasterSize xAxisNameCenterOffset = new RasterSize(leftPadding
+		RasterSize xAxisNameCenterOffset = new RasterSize(bounds.minX()
+				+	leftPadding
 				+ yAxisNameWidth
 				+ yValuesToYAxisNamePadding
 				+ yValuesWidth
 				+ yValueLineLength
 				// Add half of graph width
-				+ graphWidth / 2, topPadding
+				+ graphWidth / 2, bounds.minY()
+				+ topPadding
 				// Add graph height
 				+ graphHeight
 				// Add the x value lines length
@@ -179,7 +187,11 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		try {
 			graphics2D.setBackground(bgColor);
-			graphics2D.clearRect(0, 0, (int) totalSize.width(), (int) totalSize.height());
+			graphics2D.clearRect((int) Math.floor(bounds.minX()),
+							(int) Math.floor(bounds.minY()),
+							(int) Math.ceil(bounds.width()),
+							(int) Math.ceil(bounds.height())
+			);
 
 			if (graphHeight < 0) {
 				return;
@@ -188,7 +200,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 				return;
 			}
 
-			renderGraphBorders(graphics2D, graph, graphOffset, graphSize, defaultStroke, totalSize);
+			renderGraphBorders(graphics2D, graph, graphOffset, graphSize, defaultStroke, bounds);
 			if (y.showName()) {
 				renderYAxisName(graphics2D, graph, yAxisNameCenterOffset, axisNameFont, axisNameFontMetrics);
 			}
@@ -710,12 +722,12 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			RasterSize graphOffset,
 			RasterSize graphSize,
 			BasicStroke defaultStroke,
-			RasterSize totalSize) {
+			GraphBounds bounds) {
 		// Do not draw the border if the graph is fullscreen
-		if (graphOffset.width() <= 0
-						&& graphOffset.height() <= 0
-						&& graphSize.width() >= totalSize.width()
-						&& graphSize.height() >= totalSize.height()) {
+		if (graphOffset.width() <= bounds.minX()
+						&& graphOffset.height() <= bounds.minY()
+						&& graphSize.width() >= bounds.width()
+						&& graphSize.height() >= bounds.height()) {
 			return;
 		}
 		var fgColor = graph.style().colors().foreground().toColor();
@@ -750,6 +762,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	 * @return rendered labels
 	 */
 	private static List<LabelWithOffset> getXLabels(Graph graph,
+			double labelsAreaOffset,
 			double labelsAreaWidth,
 			FontMetrics valuesFontMetrics,
 			NiceScale scaleX,
@@ -767,7 +780,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		int i = 0;
 		double prevRasterLabelEndOffset = -Double.MAX_VALUE;
-		double currentRasterOffset = 0;
+		double currentRasterOffset = labelsAreaOffset;
 		double currentValue = minX;
 		while (currentValue <= maxX && i < MAX_LABELS && (scaleX.getTickSpacing() > 0)) {
 			if (mode.showLabels()) {
@@ -794,6 +807,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	 * @return rendered labels
 	 */
 	private static List<LabelWithOffset> getYLabels(Graph graph,
+			double labelsAreaOffset,
 			double labelsAreaHeight,
 			FontMetrics valuesFontMetrics,
 			NiceScale scaleY,

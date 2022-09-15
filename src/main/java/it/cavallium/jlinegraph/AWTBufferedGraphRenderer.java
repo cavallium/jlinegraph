@@ -6,13 +6,13 @@ import java.awt.image.BufferedImage;
 public class AWTBufferedGraphRenderer implements IGraphRenderer<BufferedImage> {
 
 	@Override
-	public BufferedImage renderGraph(Graph graph, RasterSize totalSize) {
-		BufferedImage image = new BufferedImage((int) totalSize.width(),
-				(int) totalSize.height(),
+	public BufferedImage renderGraph(Graph graph, GraphBounds bounds) {
+		BufferedImage image = new BufferedImage((int) bounds.maxX(),
+				(int) bounds.maxY(),
 				BufferedImage.TYPE_INT_ARGB
 		);
 		Graphics2D graphics2D = image.createGraphics();
-		AWTGraphRenderer.renderGraph(graphics2D, graph, totalSize);
+		AWTGraphRenderer.renderGraph(graphics2D, graph, bounds);
 		return image;
 	}
 

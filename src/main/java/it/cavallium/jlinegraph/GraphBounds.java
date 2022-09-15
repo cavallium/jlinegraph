@@ -6,6 +6,15 @@ public record GraphBounds(double minX, double minY, double maxX, double maxY) {
 
 	private static final GraphBounds EMPTY = new GraphBounds(0, 0, 0, 0);
 
+	public static GraphBounds fromRasterSize(RasterSize size) {
+		return fromRasterSize(RasterSize.EMPTY, size);
+	}
+
+	public static GraphBounds fromRasterSize(RasterSize offset, RasterSize size) {
+		return new GraphBounds(offset.width(), offset.height(),
+						offset.width() + size.width(), offset.height() + size.height());
+	}
+
 	public static GraphBounds fromSeriesData(List<SeriesData> seriesDataList,
 			boolean includeOriginX,
 			boolean includeOriginY) {
@@ -90,5 +99,13 @@ public record GraphBounds(double minX, double minY, double maxX, double maxY) {
 		} else {
 			return adjustZero(new GraphBounds(minX, minY, maxX, maxY), showZeroX, showZeroY);
 		}
+	}
+
+	public double height() {
+		return maxY - minY;
+	}
+
+	public double width() {
+		return maxX - minX;
 	}
 }

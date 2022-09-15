@@ -95,8 +95,8 @@ public class AWTGraphExample {
 						new SeriesStyle(new Color(0.5f, 1f, 0.5f, 1f), 0, 1, 0.3, 1d),
 						new SeriesStyle(new Color(1f, 1f, 0.7f, 1f), 1.5, 2, 0, 1d)
 				),
-						new GraphAxisStyle("X axis", false, AxisMode.SHOW_WITH_VALUES, "%.2fs"::formatted),
-						new GraphAxisStyle("Y axis", false, AxisMode.SHOW_WITH_VALUES, "%.2fm"::formatted),
+						new GraphAxisStyle("X axis", true, AxisMode.SHOW_WITH_VALUES, "%.2fs"::formatted),
+						new GraphAxisStyle("Y axis", true, AxisMode.SHOW_WITH_VALUES, "%.2fm"::formatted),
 						GRAPH_COLOR,
 						new GraphFonts(10f, 18f, 12f, 12f),
 						2f,
@@ -104,6 +104,6 @@ public class AWTGraphExample {
 								1
 				));
 		var r = new AWTGraphRenderer();
-		r.renderGraph(g, new RasterSize(w, h)).drawTo(g2d);
+		r.renderGraph(g, new GraphBounds(0, 0, w, h)).drawTo(g2d);
 	}
 }
