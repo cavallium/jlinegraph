@@ -126,9 +126,9 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			legendSizeW = getLegendSizeW(graph, seriesNameFontMetrics);
 			legendSizeH = getLegendSizeH(graph, seriesNameFontMetrics);
 
-			if (legendSizeW > graphWidth / 3d || legendSizeH > graphHeight / 2.5d) {
-				var newFontSizeW = (float) (seriesNameFont.getSize() * ((graphWidth / 3d) / legendSizeW));
-				var newFontSizeH = (float) (seriesNameFont.getSize() * ((graphHeight / 2.5d) / legendSizeH));
+			if (legendSizeW > graphWidth / 1.2d || legendSizeH > graphHeight / 1.5d) {
+				var newFontSizeW = (float) (seriesNameFont.getSize() * ((graphWidth / 1.2d) / legendSizeW));
+				var newFontSizeH = (float) (seriesNameFont.getSize() * ((graphHeight / 1.5d) / legendSizeH));
 				seriesNameFont = seriesNameFont.deriveFont(Math.min(newFontSizeW, newFontSizeH));
 				seriesNameFontMetrics = graphics2D.getFontMetrics(seriesNameFont);
 			}
@@ -352,28 +352,30 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		int i = 0;
 		for (SeriesData series : graph.data().series()) {
-			var seriesStyleSize = graph.style().seriesStyles().size();
-			if (graph.style().seriesStyles().isEmpty()) {
-				throw new IllegalArgumentException("No styles found");
-			}
-			SeriesStyle style = graph.style().seriesStyles().get(i % seriesStyleSize);
+			if (series.showInLegend()) {
+				var seriesStyleSize = graph.style().seriesStyles().size();
+				if (graph.style().seriesStyles().isEmpty()) {
+					throw new IllegalArgumentException("No styles found");
+				}
+				SeriesStyle style = graph.style().seriesStyles().get(i % seriesStyleSize);
 
-			var seriesName = series.name();
-			var stroke = new BasicStroke((float) (strokeWidth * 2f), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);
-			graphics2D.setColor(style.color().overrideOpacity(1.0f).toColor());
-			graphics2D.setStroke(stroke);
-			var lineOffsetX = legendOffsetX + seriesPadding;
-			var currentOffsetY = legendOffsetY + seriesPadding / 2d
-					+ i * (seriesPadding / 2d + singleSeriesHeight + seriesPadding / 2d)
-					+ seriesPadding / 2d;
-			var lineOffsetY = currentOffsetY + singleSeriesHeight / 2d;
-			graphics2D.draw(new Line2D.Double(lineOffsetX, lineOffsetY, lineOffsetX + seriesPreviewLineWidth, lineOffsetY));
-			var textOffsetX = lineOffsetX + seriesPreviewLineWidth + seriesPadding;
-			var textOffsetY = currentOffsetY + seriesNameFontMetrics.getAscent();
-			graphics2D.setColor(fgColor);
-			graphics2D.setFont(seriesNameFont);
-			graphics2D.fill(generateShapeFromText(graphics2D, seriesName, textOffsetX, textOffsetY));
-			i++;
+				var seriesName = series.name();
+				var stroke = new BasicStroke((float) (strokeWidth * 2f), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);
+				graphics2D.setColor(style.color().overrideOpacity(1.0f).toColor());
+				graphics2D.setStroke(stroke);
+				var lineOffsetX = legendOffsetX + seriesPadding;
+				var currentOffsetY = legendOffsetY + seriesPadding / 2d
+								+ i * (seriesPadding / 2d + singleSeriesHeight + seriesPadding / 2d)
+								+ seriesPadding / 2d;
+				var lineOffsetY = currentOffsetY + singleSeriesHeight / 2d;
+				graphics2D.draw(new Line2D.Double(lineOffsetX, lineOffsetY, lineOffsetX + seriesPreviewLineWidth, lineOffsetY));
+				var textOffsetX = lineOffsetX + seriesPreviewLineWidth + seriesPadding;
+				var textOffsetY = currentOffsetY + seriesNameFontMetrics.getAscent();
+				graphics2D.setColor(fgColor);
+				graphics2D.setFont(seriesNameFont);
+				graphics2D.fill(generateShapeFromText(graphics2D, seriesName, textOffsetX, textOffsetY));
+				i++;
+			}
 		}
 	}
 
@@ -397,7 +399,12 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	}
 
 	private static double getLegendSizeH(Graph graph, FontMetrics seriesNameFontMetrics) {
-		int seriesCount = graph.data().series().size();
+		int seriesCount = 0;
+		for (SeriesData series : graph.data().series()) {
+			if (series.showInLegend()) {
+				seriesCount++;
+			}
+		}
 		double seriesPadding = getSeriesPadding(seriesNameFontMetrics);
 		double singleSeriesHeight = seriesNameFontMetrics.getHeight();
 		return  seriesPadding / 2d
@@ -408,10 +415,12 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	private static double getSeriesTextMaxWidth(Graph graph, FontMetrics seriesNameFontMetrics) {
 		double seriesTextMaxWidth = 0;
 		for (SeriesData series : graph.data().series()) {
-			var seriesName = series.name();
-			var seriesNameRasterWidth = seriesNameFontMetrics.stringWidth(seriesName);
-			if (seriesTextMaxWidth < seriesNameRasterWidth) {
-				seriesTextMaxWidth = seriesNameRasterWidth;
+			if (series.showInLegend()) {
+				var seriesName = series.name();
+				var seriesNameRasterWidth = seriesNameFontMetrics.stringWidth(seriesName);
+				if (seriesTextMaxWidth < seriesNameRasterWidth) {
+					seriesTextMaxWidth = seriesNameRasterWidth;
+				}
 			}
 		}
 		return seriesTextMaxWidth;
