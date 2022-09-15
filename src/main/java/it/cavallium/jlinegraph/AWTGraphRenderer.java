@@ -48,25 +48,31 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 		var valuesFontMetrics = graphics2D.getFontMetrics(valuesFont);
 		var axisNameFontMetrics = graphics2D.getFontMetrics(axisNameFont);
 
+		var paddingMultiplier = graph.style().paddingMultiplier();
 		var graphBounds = graph.data().bounds();
 		var x = graph.style().x();
 		var y = graph.style().y();
+		var padding = defaultFontMetrics.getHeight() * paddingMultiplier;
 		var scaleX = new NiceScale(graphBounds.minX(), graphBounds.maxX());
 		scaleX.setMaxTicks(20);
 		var scaleY = new NiceScale(graphBounds.minY(), graphBounds.maxY());
 		scaleY.setMaxTicks(20);
-		var topPadding = defaultFontMetrics.getHeight() + valuesFontMetrics.getHeight() / 2d;
-		var leftPadding = defaultFontMetrics.getHeight();
-		var rightPadding = defaultFontMetrics.getHeight()
-				+ valuesFontMetrics.stringWidth(y.valueFormat().apply(graphBounds.maxX())) / 2d;
-		var bottomPadding = defaultFontMetrics.getHeight();
-		var xValueLineLength = valuesFontMetrics.getHeight();
-		var yValueLineLength = valuesFontMetrics.getHeight();
-		var xValuesHeight = valuesFontMetrics.getHeight();
-		var xValuesToXAxisNamePadding = (x.show() ? valuesFontMetrics.getHeight() : 0);
-		var xAxisNameHeight = (x.show() ? axisNameFontMetrics.getHeight() : 0);
-		var yAxisNameWidth = (y.show() ? axisNameFontMetrics.getHeight() : 0);
-		var yValuesToYAxisNamePadding = (y.show() ? valuesFontMetrics.getHeight() : 0);
+		var halfMaxXLabelWidth = x.mode().showLabels()
+						? (valuesFontMetrics.stringWidth(y.valueFormat().apply(graphBounds.maxX())) / 2d) : 0;
+		var halfMaxYLabelHeight = (y.mode().showLabels() ? valuesFontMetrics.getHeight() / 2d : 0);
+		var topPadding = padding + halfMaxYLabelHeight;
+		var leftPadding = padding
+						+ ((y.mode() == AxisMode.HIDE && !y.showName()) ? halfMaxXLabelWidth : 0);
+		var rightPadding = padding + (x.mode().showLabels() ? halfMaxXLabelWidth : 0);
+		var bottomPadding = padding
+						+ ((x.mode() == AxisMode.HIDE && !x.showName()) ? halfMaxYLabelHeight : 0);
+		var xValueLineLength = x.mode().showRuler() ? valuesFontMetrics.getHeight() : 0;
+		var yValueLineLength = y.mode().showRuler() ? valuesFontMetrics.getHeight() : 0;
+		var xValuesHeight = x.mode().showLabels() ? valuesFontMetrics.getHeight() : 0;
+		var xValuesToXAxisNamePadding = (x.showName() ? valuesFontMetrics.getHeight() / 2 : 0);
+		var xAxisNameHeight = (x.showName() ? axisNameFontMetrics.getHeight() : 0);
+		var yAxisNameWidth = (y.showName() ? axisNameFontMetrics.getHeight() : 0);
+		var yValuesToYAxisNamePadding = (y.showName() ? valuesFontMetrics.getHeight() / 2 : 0);
 
 		var graphHeight
 				// Start with total height
@@ -87,7 +93,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 		var xValueLineOffset = topPadding + graphHeight;
 
 		var yLabels = getYLabels(graph, graphHeight, valuesFontMetrics, scaleY);
-		RasterSize yLabelsAreaSize = computeYLabelsAreaSize(graphHeight, valuesFontMetrics, yLabels);
+		RasterSize yLabelsAreaSize = computeYLabelsAreaSize(y.mode(), graphHeight, valuesFontMetrics, yLabels);
 		var yValuesWidth = yLabelsAreaSize.width();
 		var yValueLineOffset = leftPadding + yAxisNameWidth + yValuesToYAxisNamePadding + yValuesWidth;
 
@@ -129,9 +135,9 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		var xLabels = getXLabels(graph, graphWidth, valuesFontMetrics, scaleX);
 
-		RasterSize yAxisNameCenterOffset = new RasterSize(valuesFontMetrics.getHeight(), valuesFontMetrics.getHeight()
+		RasterSize yAxisNameCenterOffset = new RasterSize(leftPadding + valuesFontMetrics.getHeight() / 2d, valuesFontMetrics.getHeight()
 				// Add half of graph height
-				+ graphHeight / 2);
+				+ graphHeight / 2 + topPadding);
 
 		RasterSize yValuesOffset = new RasterSize(leftPadding
 				// Add y axis name "90deg height"
@@ -182,11 +188,11 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 				return;
 			}
 
-			renderGraphBorders(graphics2D, graph, graphOffset, graphSize, defaultStroke);
-			if (y.show()) {
+			renderGraphBorders(graphics2D, graph, graphOffset, graphSize, defaultStroke, totalSize);
+			if (y.showName()) {
 				renderYAxisName(graphics2D, graph, yAxisNameCenterOffset, axisNameFont, axisNameFontMetrics);
 			}
-			if (x.show()) {
+			if (x.showName()) {
 				renderXAxisName(graphics2D, graph, xAxisNameCenterOffset, axisNameFont, axisNameFontMetrics);
 			}
 			renderYAxisValueLabels(graphics2D,
@@ -198,7 +204,9 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 					yLabels,
 					yLabelsAreaSize,
 					yValuesOffset,
-					defaultStroke
+					defaultStroke,
+					y.mode().showRuler(),
+					y.mode().showLabels()
 			);
 			renderXAxisValueLabels(graphics2D,
 					graph,
@@ -207,7 +215,9 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 					xValueLineOffset,
 					xValueLineLength,
 					xLabels, xValuesOffset,
-					defaultStroke
+					defaultStroke,
+					x.mode().showRuler(),
+					x.mode().showLabels()
 			);
 
 
@@ -615,25 +625,33 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			List<LabelWithOffset> yLabels,
 			RasterSize yLabelsAreaSize,
 			RasterSize yValuesOffset,
-			BasicStroke defaultStroke) {
-		graphics2D.setFont(valuesFont);
-		graphics2D.setStroke(defaultStroke);
-		graphics2D.setColor(graph.style().colors().foreground().toColor());
-		yLabels.forEach(label -> {
-			var lineStartOffsetY = yValuesOffset.height() + label.rasterOffset();
-			var currentLineOffsetX = label.formattedText().isBlank() ? yValueLineLength / 3d : 0;
-			var currentLineLength = yValueLineLength + (label.formattedText().isBlank() ? -yValueLineLength / 3d : 0);
-			graphics2D.draw(new Line2D.Double(yValueLineOffset + currentLineOffsetX,
-					lineStartOffsetY,
-					yValueLineOffset + currentLineOffsetX + currentLineLength,
-					lineStartOffsetY
-			));
-			graphics2D.fill(generateShapeFromText(graphics2D,
-					label.formattedText(),
-					yValuesOffset.width() + yLabelsAreaSize.width() - valuesFontMetrics.stringWidth(label.formattedText()),
-					yValuesOffset.height() + label.rasterOffset() + valuesFontMetrics.getHeight() / 2d - valuesFontMetrics.getDescent()
-			));
-		});
+			BasicStroke defaultStroke,
+			boolean showRulerTicks,
+			boolean showRulerLabels) {
+		if ((yValueLineLength > 0 && showRulerTicks) || showRulerLabels) {
+			graphics2D.setFont(valuesFont);
+			graphics2D.setStroke(defaultStroke);
+			graphics2D.setColor(graph.style().colors().foreground().toColor());
+			yLabels.forEach(label -> {
+				if (showRulerTicks) {
+					var lineStartOffsetY = yValuesOffset.height() + label.rasterOffset();
+					var currentLineOffsetX = label.formattedText().isBlank() ? yValueLineLength / 3d : 0;
+					var currentLineLength = yValueLineLength + (label.formattedText().isBlank() ? -yValueLineLength / 3d : 0);
+					graphics2D.draw(new Line2D.Double(yValueLineOffset + currentLineOffsetX,
+						lineStartOffsetY,
+						yValueLineOffset + currentLineOffsetX + currentLineLength,
+						lineStartOffsetY
+					));
+				}
+				if (showRulerLabels) {
+					graphics2D.fill(generateShapeFromText(graphics2D,
+						label.formattedText(),
+						yValuesOffset.width() + yLabelsAreaSize.width() - valuesFontMetrics.stringWidth(label.formattedText()),
+						yValuesOffset.height() + label.rasterOffset() + valuesFontMetrics.getHeight() / 2d - valuesFontMetrics.getDescent()
+					));
+				}
+			});
+		}
 	}
 
 	private static void renderXAxisName(Graphics2D graphics2D,
@@ -662,28 +680,44 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			int xValueLineLength,
 			List<LabelWithOffset> xLabels,
 			RasterSize xValuesOffset,
-			BasicStroke defaultStroke) {
-		graphics2D.setFont(valuesFont);
-		graphics2D.setStroke(defaultStroke);
-		graphics2D.setColor(graph.style().colors().foreground().toColor());
-		xLabels.forEach(label -> {
-			var lineStartOffsetX = xValuesOffset.width() + label.rasterOffset();
-			var currentLineLength = label.formattedText().isBlank() ? xValueLineLength / 1.5d : xValueLineLength;
-			//noinspection SuspiciousNameCombination
-			graphics2D.draw(new Line2D.Double(lineStartOffsetX, xValueLineOffset, lineStartOffsetX, xValueLineOffset + currentLineLength));
-			graphics2D.fill(generateShapeFromText(graphics2D,
-					label.formattedText(),
-					xValuesOffset.width() + label.rasterOffset() - valuesFontMetrics.stringWidth(label.formattedText()) / 2d,
-					xValuesOffset.height() + valuesFontMetrics.getHeight()
-			));
-		});
+			BasicStroke defaultStroke,
+			boolean showRulerTicks,
+			boolean showRulerLabels) {
+		if ((xValueLineLength > 0 && showRulerTicks) || showRulerLabels) {
+			graphics2D.setFont(valuesFont);
+			graphics2D.setStroke(defaultStroke);
+			graphics2D.setColor(graph.style().colors().foreground().toColor());
+			xLabels.forEach(label -> {
+				var lineStartOffsetX = xValuesOffset.width() + label.rasterOffset();
+				if (showRulerTicks) {
+					var currentLineLength = label.formattedText().isBlank() ? xValueLineLength / 1.5d : xValueLineLength;
+					//noinspection SuspiciousNameCombination
+					graphics2D.draw(new Line2D.Double(lineStartOffsetX, xValueLineOffset, lineStartOffsetX, xValueLineOffset + currentLineLength));
+				}
+				if (showRulerLabels) {
+					graphics2D.fill(generateShapeFromText(graphics2D,
+						label.formattedText(),
+						xValuesOffset.width() + label.rasterOffset() - valuesFontMetrics.stringWidth(label.formattedText()) / 2d,
+						xValuesOffset.height() + valuesFontMetrics.getHeight()
+					));
+				}
+			});
+		}
 	}
 
 	private static void renderGraphBorders(Graphics2D graphics2D,
 			Graph graph,
 			RasterSize graphOffset,
 			RasterSize graphSize,
-			BasicStroke defaultStroke) {
+			BasicStroke defaultStroke,
+			RasterSize totalSize) {
+		// Do not draw the border if the graph is fullscreen
+		if (graphOffset.width() <= 0
+						&& graphOffset.height() <= 0
+						&& graphSize.width() >= totalSize.width()
+						&& graphSize.height() >= totalSize.height()) {
+			return;
+		}
 		var fgColor = graph.style().colors().foreground().toColor();
 		graphics2D.setColor(fgColor);
 		graphics2D.setStroke(defaultStroke);
@@ -694,7 +728,11 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 		));
 	}
 
-	private static RasterSize computeYLabelsAreaSize(double graphHeight, FontMetrics valuesFontMetrics, List<LabelWithOffset> yLabels) {
+	private static RasterSize computeYLabelsAreaSize(AxisMode axisMode, double graphHeight, FontMetrics valuesFontMetrics,
+					List<LabelWithOffset> yLabels) {
+		if (!axisMode.showLabels()) {
+			return RasterSize.EMPTY;
+		}
 		double maxLabelWidth = 0d;
 		for (LabelWithOffset yLabel : yLabels) {
 			var currentMaxLabelWidth = valuesFontMetrics.stringWidth(yLabel.formattedText);
