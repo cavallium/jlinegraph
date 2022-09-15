@@ -92,7 +92,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 
 		var xValueLineOffset = topPadding + graphHeight;
 
-		var yLabels = getYLabels(graph, graphHeight, valuesFontMetrics, scaleY);
+		var yLabels = getYLabels(graph, graphHeight, valuesFontMetrics, scaleY, y.mode());
 		RasterSize yLabelsAreaSize = computeYLabelsAreaSize(y.mode(), graphHeight, valuesFontMetrics, yLabels);
 		var yValuesWidth = yLabelsAreaSize.width();
 		var yValueLineOffset = leftPadding + yAxisNameWidth + yValuesToYAxisNamePadding + yValuesWidth;
@@ -133,7 +133,7 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 			}
 		}
 
-		var xLabels = getXLabels(graph, graphWidth, valuesFontMetrics, scaleX);
+		var xLabels = getXLabels(graph, graphWidth, valuesFontMetrics, scaleX, x.mode());
 
 		RasterSize yAxisNameCenterOffset = new RasterSize(leftPadding + valuesFontMetrics.getHeight() / 2d, valuesFontMetrics.getHeight()
 				// Add half of graph height
@@ -752,7 +752,11 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	private static List<LabelWithOffset> getXLabels(Graph graph,
 			double labelsAreaWidth,
 			FontMetrics valuesFontMetrics,
-			NiceScale scaleX) {
+			NiceScale scaleX,
+			AxisMode mode) {
+		if (mode == AxisMode.HIDE) {
+			return List.of();
+		}
 		var bounds = graph.data().bounds();
 		var minX = bounds.minX();
 		var maxX = bounds.maxX();
@@ -766,11 +770,15 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 		double currentRasterOffset = 0;
 		double currentValue = minX;
 		while (currentValue <= maxX && i < MAX_LABELS && (scaleX.getTickSpacing() > 0)) {
-			var formatted = format.apply(currentValue);
-			var stringWidth = valuesFontMetrics.stringWidth(formatted);
-			if (currentRasterOffset - stringWidth / 2d > prevRasterLabelEndOffset) {
-				labels.add(new LabelWithOffset(currentValue, currentRasterOffset, formatted));
-				prevRasterLabelEndOffset = currentRasterOffset + stringWidth / 2d;
+			if (mode.showLabels()) {
+				var formatted = format.apply(currentValue);
+				var stringWidth = valuesFontMetrics.stringWidth(formatted);
+				if (currentRasterOffset - stringWidth / 2d > prevRasterLabelEndOffset) {
+					labels.add(new LabelWithOffset(currentValue, currentRasterOffset, formatted));
+					prevRasterLabelEndOffset = currentRasterOffset + stringWidth / 2d;
+				} else {
+					labels.add(new LabelWithOffset(currentValue, currentRasterOffset, ""));
+				}
 			} else {
 				labels.add(new LabelWithOffset(currentValue, currentRasterOffset, ""));
 			}
@@ -788,7 +796,11 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 	private static List<LabelWithOffset> getYLabels(Graph graph,
 			double labelsAreaHeight,
 			FontMetrics valuesFontMetrics,
-			NiceScale scaleY) {
+			NiceScale scaleY,
+			AxisMode mode) {
+		if (mode == AxisMode.HIDE) {
+			return List.of();
+		}
 		var bounds = graph.data().bounds();
 		var minY = bounds.minY();
 		var maxY = bounds.maxY();
@@ -804,9 +816,13 @@ public class AWTGraphRenderer implements IGraphRenderer<AWTDrawer> {
 		double currentRasterOffset = labelsAreaHeight;
 		double currentValue = minY;
 		while (currentValue <= maxY && i < MAX_LABELS && (scaleY.getTickSpacing() > 0)) {
-			if (currentRasterOffset + stringBottom < prevRasterLabelEndOffset) {
-				labels.add(new LabelWithOffset(currentValue, currentRasterOffset, format.apply(currentValue)));
-				prevRasterLabelEndOffset = currentRasterOffset - stringTop;
+			if (mode.showLabels()) {
+				if (currentRasterOffset + stringBottom < prevRasterLabelEndOffset) {
+					labels.add(new LabelWithOffset(currentValue, currentRasterOffset, format.apply(currentValue)));
+					prevRasterLabelEndOffset = currentRasterOffset - stringTop;
+				} else {
+					labels.add(new LabelWithOffset(currentValue, currentRasterOffset, ""));
+				}
 			} else {
 				labels.add(new LabelWithOffset(currentValue, currentRasterOffset, ""));
 			}
