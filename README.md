@@ -25,7 +25,7 @@ Add the dependency to your pom.xml
   <dependency>
     <groupId>it.cavallium</groupId>
     <artifactId>jlinegraph</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
   </dependency>
 </dependencies>
 ```
